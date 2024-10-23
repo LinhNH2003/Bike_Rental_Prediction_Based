@@ -1,0 +1,99 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+## 3.2 Xử lí dữ liệu.
+
+### 3.2.1 Kiểm tra tổng thể dữ liệu.
+
+```{r}
+# Hàm để lấy thông tin dữ liệu bao gồm loại dữ liệu, giá trị duy nhất, và giá trị null
+datainfo <- function(data) {
+  # Tạo một khung dữ liệu để lưu trữ thông tin
+  temp_ps <- data.frame(matrix(ncol = 6, nrow = ncol(data)))
+  colnames(temp_ps) <- c("Column_Name", "DataType", "Non_null_Values", "Unique_Values", "NaN_Values_Percentage", "Duplicates")
+  
+  # Điền thông tin vào khung dữ liệu
+  temp_ps$Column_Name <- colnames(data)  # Lấy tên các cột
+  temp_ps$DataType <- sapply(data, class)  
+  # Lấy loại dữ liệu sử dụng sapply
+  temp_ps$Non_null_Values <- sapply(data, function(x) sum(!is.na(x)))  
+  # Đếm số giá trị không null sử dụng sapply và is.na
+  temp_ps$Unique_Values <- sapply(data, function(x) length(unique(na.omit(x))))  
+  # Đếm số giá trị duy nhất loại bỏ các giá trị NA
+  temp_ps$NaN_Values <- sapply(data, function(x) sum(is.na(x)))  
+  # Đếm số giá trị null sử dụng sapply và is.na
+  temp_ps$NaN_Values_Percentage <- (temp_ps$NaN_Values / nrow(data)) * 100  
+  # Tính tỷ lệ phần trăm của các giá trị null
+  
+  # Đếm số lượng bản ghi bị trùng lặp trong dữ liệu
+  temp_ps$Duplicates <- sum(duplicated(data))
+  
+  # Trả về khung dữ liệu chứa thông tin
+  return(temp_ps)
+}
+data_info <- datainfo(data)
+print(data_info)
+```
+
+=\> Bộ dữ liệu không chứa NaN
+
+### 3.2.2 Kiểm tra hàm functioning_day với rented_bike_coun
+
+```{r}
+result <- data %>%
+  group_by(functioning_day) %>%
+  summarise(rented_bike_count = sum(rented_bike_count, na.rm = TRUE)) %>%
+  arrange(desc(rented_bike_count)) %>%
+  ungroup()
+print(result)
+```
+
+```{r}
+summary(factor(data$functioning_day))
+```
+
+=\> **Nhận xét**: Theo thống kê tóm tắt của Working_day, có 295 ngày không hoạt động trong tập dữ liệu.
+Những ngày này sẽ không có số lượng xe đạp vì không thể thuê.
+Do đó, các điểm dữ liệu của ngày không hoạt động sẽ bị xóa khỏi tập dữ liệu vì điều này không liên quan đến mục đích của bài toán.
+Tập dữ liệu hiện còn lại 8465 điểm dữ liệu.
+
+```{r}
+data <- data %>%
+  filter(functioning_day != "No") %>% dplyr::select(-functioning_day)
+```
+
+### 3.2.3 Chuyển đổi kiểu dữ liệu cho các biến holiday, seasons.
+
+```{r}
+  data <- data |> mutate(
+  holiday = as.factor(holiday),
+  seasons = as.factor(seasons)
+)
+```
+
+### 3.2.4 Tách thời gian thành ngày, tháng, năm và thêm cột ngày trong tuần.
+
+```{r}
+data <- data %>%
+  mutate(
+    Date = dmy(date),  
+    # Chuyển đổi cột 'date' sang định dạng ngày tháng
+    year = year(Date),
+    month = month(Date),
+    day = day(Date)
+  )
+# Loại bỏ cột 'Date'
+data <- subset(data, select = -c(Date))
+# Tạo cột day bằng cách kết hợp year, month và day
+data$full_date <- as.Date(with(data, paste(year, month, day, sep = "-")), format = "%Y-%m-%d")
+
+# Thêm cột day_of_week dựa trên cột full_date
+data$day_of_week <- weekdays(data$full_date)
+
+# Loại bỏ cột 'full_date'
+data <- subset(data, select = -c(full_date))
+
+# Hiển thị kết quả
+print(head(data))
+```
